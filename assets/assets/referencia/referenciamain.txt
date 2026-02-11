@@ -1,0 +1,193 @@
+import 'package:cbluna_crm_lu/providers/book_details_provider.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:url_strategy/url_strategy.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_portal/flutter_portal.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import 'package:cbluna_crm_lu/helpers/constants.dart';
+import 'package:cbluna_crm_lu/helpers/globals.dart';
+import 'package:cbluna_crm_lu/helpers/scroll_behavior.dart';
+import 'package:cbluna_crm_lu/internationalization/internationalization.dart';
+import 'package:cbluna_crm_lu/models/sales/suggestions_api.dart';
+import 'package:cbluna_crm_lu/models/sales/suggestions_repository_impl.dart';
+import 'package:cbluna_crm_lu/providers/cart_provider.dart';
+import 'package:cbluna_crm_lu/providers/content_manager_provider.dart';
+import 'package:cbluna_crm_lu/providers/content_manager_lu_provider.dart';
+import 'package:cbluna_crm_lu/providers/purchase_order_provider.dart';
+import 'package:cbluna_crm_lu/providers/step1_form_provider.dart';
+import 'package:cbluna_crm_lu/providers/providers.dart';
+import 'package:cbluna_crm_lu/providers/sales_form_view_provider.dart';
+import 'package:cbluna_crm_lu/providers/step2_form_provider.dart';
+import 'package:cbluna_crm_lu/providers/step3_form_provider.dart';
+import 'package:cbluna_crm_lu/providers/step4_form_provider.dart';
+import 'package:cbluna_crm_lu/providers/support_provider.dart';
+import 'package:cbluna_crm_lu/router/router.dart';
+import 'package:cbluna_crm_lu/theme/theme.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  setPathUrlStrategy();
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: anonKey,
+    realtimeClientOptions: const RealtimeClientOptions(
+      eventsPerSecond: 2,
+    ),
+  );
+
+  supabaseLU = SupabaseClient(supabaseUrl, anonKey, schema: 'lectores_urb');
+
+  await initGlobals();
+
+  GoRouter.optionURLReflectsImperativeAPIs = true;
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(
+          create: (_) => UserState(),
+        ),
+        ChangeNotifierProvider(
+          create: (context) => VisualStateProvider(context),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => CustomersProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => UsersProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => OrdersProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => InventoryProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => PurchaseOrderProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ServiceOrderProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => VideosProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => BooksProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => BillingProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => CartProvider(),
+        ),
+        ChangeNotifierProvider(create: (_) => SupportProvider()),
+        ChangeNotifierProvider<SalesFormViewProvider>(
+          create: (_) => SalesFormViewProvider(),
+        ),
+        ChangeNotifierProvider<Step1FormProvider>(
+          create: (_) => Step1FormProvider(),
+        ),
+        ChangeNotifierProvider<Step2FormProvider>(
+          create: (_) => Step2FormProvider(
+              SuggestionsRepositoryImpl(
+                SuggestionsAPI(Dio()),
+              ),
+              UniqueKey(),
+              notify: true),
+        ),
+        ChangeNotifierProvider<Step3FormProvider>(
+          create: (_) => Step3FormProvider(),
+        ),
+        ChangeNotifierProvider<Step4FormProvider>(
+          create: (_) => Step4FormProvider(
+              SuggestionsRepositoryImpl(
+                SuggestionsAPI(Dio()),
+              ),
+              UniqueKey(),
+              notify: true),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ContentManagerProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => CRMProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ContentManagerLUProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => QRCodeProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => BookDetailsProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => CouponsProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => BibliotecaVideosProvider(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => BibliotecaProvider(),
+        ),
+      ],
+      child: const MyApp(),
+    ),
+  );
+}
+
+class MyApp extends StatefulWidget {
+  const MyApp({Key? key}) : super(key: key);
+
+  // This widget is the root of your application.
+  @override
+  State<MyApp> createState() => _MyAppState();
+
+  static _MyAppState of(BuildContext context) =>
+      context.findAncestorStateOfType<_MyAppState>()!;
+}
+
+class _MyAppState extends State<MyApp> {
+  Locale _locale = const Locale('es');
+  ThemeMode _themeMode = AppTheme.themeMode;
+
+  void setLocale(Locale value) => setState(() => _locale = value);
+  void setThemeMode(ThemeMode mode) => setState(() {
+        _themeMode = mode;
+        AppTheme.saveThemeMode(mode);
+      });
+
+  @override
+  Widget build(BuildContext context) {
+    return Portal(
+      child: MaterialApp.router(
+        title: 'CRM LU',
+        debugShowCheckedModeBanner: false,
+        locale: _locale,
+        localizationsDelegates: const [
+          AppLocalizationsDelegate(),
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('en', 'US')],
+        theme: ThemeData(
+          brightness: Brightness.light,
+          dividerColor: Colors.grey,
+        ),
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          dividerColor: Colors.grey,
+        ),
+        themeMode: _themeMode,
+        routerConfig: router,
+        scrollBehavior: MyCustomScrollBehavior(),
+      ),
+    );
+  }
+}
